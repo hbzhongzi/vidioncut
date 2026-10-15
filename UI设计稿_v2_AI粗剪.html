@@ -1,0 +1,766 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VideoCut UI 设计稿 v2 · AI 粗剪 / Codex 集成</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0e1013;
+    --panel: #16191f;
+    --panel2: #1d222a;
+    --border: #282e38;
+    --text: #e8eaee;
+    --text2: #9aa4b2;
+    --text3: #66707e;
+    --accent: #4f8cff;
+    --accent2: #7c5cff;
+    --accent-soft: rgba(79, 140, 255, .14);
+    --success: #3fb96f;
+    --danger: #f2606a;
+    --warning: #e8a33d;
+    --shadow: 0 18px 60px rgba(0, 0, 0, .5);
+  }
+  body[data-theme="light"] {
+    --bg: #e9edf2;
+    --panel: #ffffff;
+    --panel2: #f3f5f9;
+    --border: #e0e5ec;
+    --text: #1f2733;
+    --text2: #5b6675;
+    --text3: #8a94a3;
+    --accent-soft: rgba(79, 140, 255, .12);
+    --shadow: 0 18px 60px rgba(31, 39, 51, .18);
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, "Microsoft YaHei", sans-serif;
+    min-height: 100vh;
+    padding: 26px 20px 56px;
+    transition: background .2s;
+  }
+  .page-head { text-align: center; margin-bottom: 18px; }
+  .page-head h1 { font-size: 17px; font-weight: 700; letter-spacing: .5px; }
+  .page-head p { font-size: 12px; color: var(--text3); margin-top: 5px; }
+  .page-head .sw {
+    display: inline-flex; align-items: center; gap: 7px; margin-top: 10px;
+    font-size: 12px; color: var(--text2); background: var(--panel);
+    border: 1px solid var(--border); border-radius: 20px; padding: 5px 13px; cursor: pointer;
+  }
+  .page-head .sw:hover { color: var(--text); }
+  .screen-sw { display: flex; justify-content: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .screen-sw button {
+    border: 1px solid var(--border); background: var(--panel); color: var(--text2);
+    padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: .15s;
+  }
+  .screen-sw button:hover { color: var(--text); }
+  .screen-sw button.on {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-color: transparent; color: #fff; font-weight: 600;
+  }
+  .screen { display: none; }
+  .screen.on { display: block; }
+
+  /* ===== 模拟应用窗口 ===== */
+  .window {
+    max-width: 1180px; margin: 0 auto;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
+  }
+  .titlebar {
+    height: 54px; display: flex; align-items: center; gap: 14px; padding: 0 14px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, var(--panel2), var(--panel));
+  }
+  .logo { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; }
+  .logo .ic {
+    width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff;
+  }
+  .logo small { font-size: 11px; color: var(--text3); font-weight: 500; margin-left: 2px; }
+  .seg { display: flex; background: var(--panel2); border: 1px solid var(--border); border-radius: 9px; padding: 3px; gap: 2px; margin: 0 auto; }
+  .seg button {
+    border: 0; background: transparent; color: var(--text2);
+    padding: 6px 16px; border-radius: 7px; font-size: 13px; cursor: pointer; transition: .15s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .seg button:hover { color: var(--text); }
+  .seg button.on { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-weight: 600; }
+  .seg .badge-new {
+    font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 5px;
+    background: var(--accent-soft); color: var(--accent); letter-spacing: .5px;
+  }
+  .seg button.on .badge-new { background: rgba(255,255,255,.22); color: #fff; }
+  .winctl { display: flex; gap: 8px; }
+  .winctl i { width: 11px; height: 11px; border-radius: 50%; background: var(--border); }
+  .winctl i:first-child { background: #f2606a88; }
+
+  /* ===== 双栏工作台 ===== */
+  .work { display: grid; grid-template-columns: 1fr 300px; min-height: 560px; }
+  .main { padding: 16px; display: flex; flex-direction: column; gap: 14px; border-right: 1px solid var(--border); }
+  .side { padding: 16px; display: flex; flex-direction: column; gap: 14px; background: var(--panel2); }
+
+  .card {
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 11px; padding: 13px 14px;
+  }
+  .main .card { background: var(--panel); }
+  .card h3 { font-size: 12px; color: var(--text2); font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+  .card h3 .hint { font-size: 11px; color: var(--text3); font-weight: 400; }
+
+  /* ===== 预览区 ===== */
+  .preview {
+    background: #000; border-radius: 10px; aspect-ratio: 16/9; position: relative; overflow: hidden;
+    display: grid; place-items: center; border: 1px solid var(--border);
+  }
+  .preview video { width: 100%; height: 100%; object-fit: contain; }
+  .preview .ph { color: var(--text3); font-size: 12px; text-align: center; }
+  .preview .ctrl {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 38px;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,.82));
+    display: flex; align-items: center; gap: 10px; padding: 0 12px;
+  }
+  .preview .ctrl button { border: 0; background: none; color: #fff; cursor: pointer; font-size: 13px; display: grid; place-items: center; }
+  .preview .ctrl .t { color: #cfd6e0; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .preview .ctrl .seek { flex: 1; height: 4px; border-radius: 3px; background: rgba(255,255,255,.22); position: relative; }
+  .preview .ctrl .seek .buf { position: absolute; inset: 0 34% 0 0; background: var(--accent); border-radius: 3px; }
+  .preview .ctrl .seek .dot { position: absolute; left: 34%; top: 50%; transform: translate(-50%,-50%); width: 9px; height: 9px; border-radius: 50%; background: #fff; }
+  .preview .ctrl .vol { width: 52px; height: 4px; border-radius: 3px; background: rgba(255,255,255,.22); position: relative; }
+  .preview .ctrl .vol::after { content: ""; position: absolute; inset: 0 30% 0 0; background: #cfd6e0; border-radius: 3px; }
+
+  /* ===== 转录进度（ASR） ===== */
+  .asr { display: flex; align-items: center; gap: 12px; }
+  .asr .spin {
+    width: 34px; height: 34px; border-radius: 50%; flex: none;
+    border: 3px solid var(--border); border-top-color: var(--accent);
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .asr .info { flex: 1; }
+  .asr .info .t1 { font-size: 13px; font-weight: 600; }
+  .asr .info .t2 { font-size: 11px; color: var(--text3); margin-top: 3px; }
+  .bar { height: 7px; border-radius: 5px; background: var(--panel2); overflow: hidden; margin-top: 9px; border: 1px solid var(--border); }
+  .bar i { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .asr .pct { font-size: 17px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600;
+    padding: 2px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent);
+  }
+  .chip.cpu { background: rgba(232,163,61,.13); color: var(--warning); }
+  .chip.ok { background: rgba(63,185,111,.13); color: var(--success); }
+
+  /* ===== 账本表格 ===== */
+  .ledger-tools { display: flex; gap: 8px; }
+  .btn {
+    border: 1px solid var(--border); background: var(--panel2); color: var(--text2);
+    padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: .15s;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .btn:hover { color: var(--text); border-color: var(--text3); }
+  .btn.pri {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-color: transparent; color: #fff; font-weight: 600;
+  }
+  .btn.pri:hover { filter: brightness(1.12); }
+  .btn.ok { background: rgba(63,185,111,.14); border-color: rgba(63,185,111,.4); color: var(--success); }
+  .btn.sm { padding: 4px 9px; font-size: 11px; border-radius: 7px; }
+
+  table.ledger { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.ledger th {
+    text-align: left; color: var(--text3); font-weight: 500; font-size: 11px;
+    padding: 7px 8px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  table.ledger td { padding: 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  table.ledger tr:last-child td { border-bottom: 0; }
+  table.ledger tr.dim td { opacity: .38; }
+  table.ledger tr:hover td { background: var(--accent-soft); }
+  .mono { font-variant-numeric: tabular-nums; font-family: Consolas, monospace; font-size: 11px; }
+  .tag {
+    display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 6px; white-space: nowrap;
+  }
+  .tag.filler { background: rgba(242,96,106,.14); color: var(--danger); }
+  .tag.silence { background: rgba(154,164,178,.14); color: var(--text2); }
+  .tag.retake { background: rgba(124,92,255,.15); color: var(--accent2); }
+  .tag.manual { background: rgba(63,185,111,.14); color: var(--success); }
+  .sw2 {
+    width: 30px; height: 17px; border-radius: 10px; background: var(--border);
+    position: relative; cursor: pointer; transition: .15s; flex: none; display: inline-block;
+  }
+  .sw2::after {
+    content: ""; position: absolute; left: 2px; top: 2px; width: 13px; height: 13px;
+    border-radius: 50%; background: #fff; transition: .15s;
+  }
+  .sw2.on { background: var(--accent); }
+  .sw2.on::after { left: 15px; }
+  .keep-strip {
+    height: 22px; border-radius: 6px; background: var(--panel2); border: 1px solid var(--border);
+    position: relative; overflow: hidden; margin-top: 10px;
+  }
+  .keep-strip .seg-keep { position: absolute; top: 0; bottom: 0; background: linear-gradient(135deg, var(--accent), var(--accent2)); opacity: .85; border-radius: 4px; }
+  .keep-strip .seg-del { position: absolute; top: 0; bottom: 0; background: rgba(242,96,106,.28); border-left: 1px solid var(--danger); border-right: 1px solid var(--danger); }
+  .keep-legend { display: flex; gap: 14px; font-size: 10px; color: var(--text3); margin-top: 7px; }
+  .keep-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+  /* ===== 侧栏 ===== */
+  .kv { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; }
+  .kv .k { color: var(--text3); }
+  .kv .v { color: var(--text); font-variant-numeric: tabular-nums; }
+  .side .card h3 { margin-bottom: 8px; }
+
+  /* 策略卡片 */
+  .strategy {
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 11px; cursor: pointer;
+    transition: .15s; margin-bottom: 8px; background: var(--panel);
+  }
+  .strategy:hover { border-color: var(--text3); }
+  .strategy.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .strategy .t { font-size: 12.5px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
+  .strategy .d { font-size: 11px; color: var(--text3); margin-top: 4px; line-height: 1.5; }
+  .radio { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--text3); flex: none; }
+  .strategy.sel .radio { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 2.5px var(--panel); }
+
+  .output {
+    display: flex; align-items: center; gap: 8px; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; color: var(--text2);
+  }
+  .output .path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: Consolas, monospace; font-size: 11px; }
+
+  .drop {
+    border: 1.5px dashed var(--border); border-radius: 10px; padding: 18px 12px; text-align: center;
+    color: var(--text3); font-size: 12px; cursor: pointer; transition: .15s;
+  }
+  .drop:hover, .drop.hot { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .drop b { display: block; font-size: 13px; color: var(--text); margin-bottom: 4px; font-weight: 600; }
+
+  /* 状态栏 */
+  .statusbar {
+    height: 34px; display: flex; align-items: center; gap: 16px; padding: 0 14px;
+    border-top: 1px solid var(--border); font-size: 11px; color: var(--text3);
+    background: linear-gradient(0deg, var(--panel2), var(--panel));
+  }
+  .statusbar .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+  .statusbar .dot.busy { background: var(--warning); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .statusbar .right { margin-left: auto; display: flex; gap: 16px; }
+
+  /* ===== Codex 面板 ===== */
+  .codex-chat { display: flex; flex-direction: column; gap: 10px; font-size: 12px; }
+  .msg { display: flex; gap: 9px; }
+  .msg .av {
+    width: 24px; height: 24px; border-radius: 7px; flex: none; display: grid; place-items: center;
+    font-size: 10px; font-weight: 700;
+  }
+  .msg.user .av { background: var(--panel2); color: var(--text2); border: 1px solid var(--border); }
+  .msg.ai .av { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .msg .bub { background: var(--panel2); border: 1px solid var(--border); border-radius: 9px; padding: 8px 11px; line-height: 1.6; color: var(--text2); flex: 1; }
+  .msg .bub b { color: var(--text); font-weight: 600; }
+  .msg .bub code {
+    font-family: Consolas, monospace; font-size: 11px; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; color: var(--accent);
+  }
+  .toolcall {
+    display: flex; align-items: center; gap: 9px; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; font-size: 11.5px;
+  }
+  .toolcall .st { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .toolcall .st.ok { background: var(--success); }
+  .toolcall .st.run { background: var(--warning); animation: pulse 1.2s infinite; }
+  .toolcall .st.err { background: var(--danger); }
+  .toolcall .name { font-family: Consolas, monospace; color: var(--accent); font-size: 11px; }
+  .toolcall .ms { margin-left: auto; color: var(--text3); font-variant-numeric: tabular-nums; }
+
+  /* 设置 */
+  .row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .row:last-child { border-bottom: 0; }
+  .row .k { color: var(--text2); }
+  .row .v { color: var(--text3); font-size: 11px; }
+  select, .fake-input {
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 7px; padding: 5px 9px; font-size: 12px; outline: none;
+  }
+  .hotwords { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .hw {
+    font-size: 11px; background: var(--accent-soft); color: var(--accent);
+    border-radius: 6px; padding: 3px 9px; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .hw i { font-style: normal; cursor: pointer; opacity: .6; }
+  .hw i:hover { opacity: 1; }
+  .warn-box {
+    border: 1px solid rgba(232,163,61,.35); background: rgba(232,163,61,.09);
+    border-radius: 9px; padding: 10px 12px; font-size: 11.5px; color: var(--warning); line-height: 1.6;
+  }
+  .warn-box b { color: var(--warning); }
+  .warn-box code { font-family: Consolas, monospace; background: rgba(232,163,61,.14); padding: 1px 5px; border-radius: 4px; font-size: 10.5px; }
+  .note {
+    max-width: 1180px; margin: 14px auto 0; font-size: 12px; color: var(--text3);
+    line-height: 1.8; padding: 0 4px;
+  }
+  .note b { color: var(--text2); }
+</style>
+</head>
+<body data-theme="dark">
+
+<div class="page-head">
+  <h1>VideoCut UI 设计稿 v2 · AI 粗剪 / Codex 集成</h1>
+  <p>对应《开发文档 v1.7》§19（M8–M11）· 单文件屏「AI 粗剪」入口 · edits 账本审核 · ASR 转录 · Codex MCP 面板</p>
+  <div class="screen-sw">
+    <button class="on" data-screen="s1">AI 粗剪工作台（账本审核）</button>
+    <button data-screen="s2">转录中（ASR sidecar）</button>
+    <button data-screen="s3">Codex 集成面板</button>
+    <button data-screen="s4">浅色主题对比</button>
+  </div>
+  <div class="sw" onclick="toggleTheme()">🌗 切换浅色 / 深色</div>
+</div>
+
+<!-- ============ 屏 1：AI 粗剪工作台 ============ -->
+<div class="screen on" id="s1">
+  <div class="window">
+    <div class="titlebar">
+      <div class="logo">
+        <span class="ic">✂</span>
+        <div>VideoCut <small>v2.0 · AI 粗剪</small></div>
+      </div>
+      <div class="seg">
+        <button>单文件</button>
+        <button>批量</button>
+        <button>合并</button>
+        <button class="on">AI 粗剪<span class="badge-new">NEW</span></button>
+      </div>
+      <div class="winctl"><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="work">
+      <div class="main">
+        <!-- 预览 + 账本 -->
+        <div class="card">
+          <h3>删词账本（edits.json）<span class="hint">demo.mp4 · 时长 08:42.0 · 12 项删除候选</span></h3>
+          <div class="preview" style="margin-bottom:12px">
+            <div class="ph">▶ 预览加载区（<code>/preview?path=</code>）</div>
+            <div class="ctrl">
+              <button>▶</button>
+              <span class="t">03:12.4 / 08:42.0</span>
+              <div class="seek"><div class="buf"></div><div class="dot"></div></div>
+              <button>🔊</button>
+              <div class="vol"></div>
+            </div>
+          </div>
+
+          <table class="ledger">
+            <thead>
+              <tr>
+                <th style="width:30px"></th>
+                <th style="width:34px"></th>
+                <th>起止</th>
+                <th>类型</th>
+                <th>内容</th>
+                <th>理由 / 来源</th>
+                <th style="width:52px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="sw2 on"></span></td>
+                <td class="mono" style="color:var(--text3)">01</td>
+                <td class="mono">00:12.4 → 00:13.1</td>
+                <td><span class="tag filler">口水词</span></td>
+                <td>“嗯……”</td>
+                <td style="color:var(--text3)">filler_word · Codex 建议</td>
+                <td><button class="btn sm">试听</button></td>
+              </tr>
+              <tr>
+                <td><span class="sw2 on"></span></td>
+                <td class="mono" style="color:var(--text3)">02</td>
+                <td class="mono">00:31.8 → 00:33.2</td>
+                <td><span class="tag silence">静音</span></td>
+                <td>—</td>
+                <td style="color:var(--text3)">silence · VAD &gt; 1.5s</td>
+                <td><button class="btn sm">试听</button></td>
+              </tr>
+              <tr>
+                <td><span class="sw2 on"></span></td>
+                <td class="mono" style="color:var(--text3)">03</td>
+                <td class="mono">01:05.0 → 01:09.6</td>
+                <td><span class="tag retake">重拍</span></td>
+                <td>“那个……我们来看下”</td>
+                <td style="color:var(--text3)">retake · Codex 建议</td>
+                <td><button class="btn sm">试听</button></td>
+              </tr>
+              <tr class="dim">
+                <td><span class="sw2"></span></td>
+                <td class="mono" style="color:var(--text3)">04</td>
+                <td class="mono">02:20.1 → 02:21.0</td>
+                <td><span class="tag filler">口水词</span></td>
+                <td>“然后”</td>
+                <td style="color:var(--text3)">filler_word · 已人工排除</td>
+                <td><button class="btn sm">试听</button></td>
+              </tr>
+              <tr>
+                <td><span class="sw2 on"></span></td>
+                <td class="mono" style="color:var(--text3)">05</td>
+                <td class="mono">03:44.2 → 03:46.0</td>
+                <td><span class="tag filler">口水词</span></td>
+                <td>“呃”</td>
+                <td style="color:var(--text3)">filler_word · Codex 建议</td>
+                <td><button class="btn sm">试听</button></td>
+              </tr>
+              <tr>
+                <td><span class="sw2 on"></span></td>
+                <td class="mono" style="color:var(--text3)">06</td>
+                <td class="mono">05:58.0 → 06:00.3</td>
+                <td><span class="tag silence">静音</span></td>
+                <td>—</td>
+                <td style="color:var(--text3)">silence · VAD &gt; 1.5s</td>
+                <td><button class="btn sm">试听</button></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="keep-strip">
+            <div class="seg-keep" style="left:0%;width:18%"></div>
+            <div class="seg-del" style="left:18%;width:1.4%"></div>
+            <div class="seg-keep" style="left:19.4%;width:30%"></div>
+            <div class="seg-del" style="left:49.4%;width:2%"></div>
+            <div class="seg-keep" style="left:51.4%;width:26%"></div>
+            <div class="seg-del" style="left:77.4%;width:3%"></div>
+            <div class="seg-keep" style="left:80.4%;width:19.6%"></div>
+          </div>
+          <div class="keep-legend">
+            <span><i style="background:var(--accent)"></i>保留段（12 段）</span>
+            <span><i style="background:rgba(242,96,106,.5)"></i>删除段（已启用 5 / 12）</span>
+            <span>保留合计 08:12.6 · 压缩 5.8%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 侧栏 -->
+      <div class="side">
+        <div class="card">
+          <h3>编辑摘要 <span class="chip ok">校验通过</span></h3>
+          <div class="kv"><span class="k">删除项</span><span class="v">5 项（已启用）</span></div>
+          <div class="kv"><span class="k">删除总时长</span><span class="v">29.4s</span></div>
+          <div class="kv"><span class="k">保留段</span><span class="v">12 段</span></div>
+          <div class="kv"><span class="k">预计产物时长</span><span class="v" style="color:var(--accent);font-weight:700">08:12.6</span></div>
+          <div style="display:flex;gap:6px;margin-top:10px">
+            <button class="btn sm" style="flex:1">全选</button>
+            <button class="btn sm" style="flex:1">全不选</button>
+            <button class="btn sm" style="flex:1">仅口水词</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>剪切策略</h3>
+          <div class="strategy sel">
+            <div class="t">精确重编码 <span class="radio"></span></div>
+            <div class="d">reencode · 逐帧精确切分，账本剪切必选；耗时随时长线性增长</div>
+          </div>
+          <div class="strategy" style="opacity:.5">
+            <div class="t">流复制 <span class="radio"></span></div>
+            <div class="d">stream_copy · 关键帧吸附，不保证删除点精度，AI 粗剪不建议</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>输出</h3>
+          <div class="output"><span>📁</span><span class="path">E:/clips/demo_cut.mp4</span></div>
+          <button class="btn pri" style="width:100%;justify-content:center;margin-top:10px;padding:9px">
+            ✂ 确认剪切（保留段 → 批量任务）
+          </button>
+          <p style="font-size:10.5px;color:var(--text3);margin-top:8px;line-height:1.6">
+            账本先行复核、后物理剪切（对齐 chengfeng 理念）；映射为 TrimBatch 任务，共享全局信号量与取消能力
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span class="dot"></span><span>就绪</span>
+      <span>FFmpeg 9.0.2（bundled）</span>
+      <span>账本 edits.json ✓</span>
+      <div class="right">
+        <span>策略：reencode</span>
+        <span>videocut.exe v2.0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 屏 2：转录中 ============ -->
+<div class="screen" id="s2">
+  <div class="window">
+    <div class="titlebar">
+      <div class="logo">
+        <span class="ic">✂</span>
+        <div>VideoCut <small>v2.0 · AI 粗剪</small></div>
+      </div>
+      <div class="seg">
+        <button>单文件</button>
+        <button>批量</button>
+        <button>合并</button>
+        <button class="on">AI 粗剪<span class="badge-new">NEW</span></button>
+      </div>
+      <div class="winctl"><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="work" style="grid-template-columns:1fr 300px">
+      <div class="main">
+        <div class="card">
+          <h3>转录与静音检测 <span class="chip cpu">CPU 模式 · 无 GPU 加速</span></h3>
+          <div class="asr">
+            <div class="spin"></div>
+            <div class="info">
+              <div class="t1">faster-whisper 正在转录音频轨…</div>
+              <div class="t2">small · int8 · VAD 已开启 · 输出 output/demo/work/</div>
+              <div class="bar"><i style="width:62%"></i></div>
+            </div>
+            <div class="pct">62%</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;font-size:11px;color:var(--text3)">
+            <span>⏱ 已用 04:38</span><span>·</span><span>预计剩余 02:51</span><span>·</span>
+            <span>实时倍速 ≈ 1.1×（5 分钟基线）</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>转录预览（transcript.srt）<span class="hint">UTF-8 · 随进度滚动</span></h3>
+          <div style="font-family:Consolas,monospace;font-size:11.5px;line-height:2;color:var(--text2);max-height:260px;overflow:hidden;position:relative">
+            <div><span style="color:var(--text3)">00:00:00,120 → 00:00:03,480</span> 大家好，欢迎回到我的频道</div>
+            <div><span style="color:var(--text3)">00:00:03,520 → 00:00:08,960</span> 今天我们来聊聊视频裁剪工具的几个关键设计</div>
+            <div><span style="color:var(--text3)">00:00:09,000 → 00:00:12,360</span> <span style="color:var(--danger)">嗯……</span>首先呢是临时目录的处理</div>
+            <div><span style="color:var(--text3)">00:00:12,400 → 00:00:16,200</span> 很多工具在这里会踩坑，跨盘 rename 会失败</div>
+            <div><span style="color:var(--text3)">00:00:16,240 → 00:00:19,880</span> 我们的做法是临时文件和输出同卷</div>
+            <div><span style="color:var(--text3)">00:00:20,000 → 00:00:23,600</span> 然后 rename 原子落地，保证产物完整</div>
+            <div><span style="color:var(--text3)">00:00:23,640 → 00:00:26,120</span> <span style="color:var(--danger)">然后</span>是进度协议的解析</div>
+            <div style="position:absolute;left:0;right:0;bottom:0;height:70px;background:linear-gradient(180deg,transparent,var(--panel))"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="card">
+          <h3>任务信息</h3>
+          <div class="kv"><span class="k">输入</span><span class="v">demo.mp4</span></div>
+          <div class="kv"><span class="k">时长</span><span class="v">08:42.0</span></div>
+          <div class="kv"><span class="k">模型</span><span class="v">small · int8</span></div>
+          <div class="kv"><span class="k">语言</span><span class="v">中文（自动）</span></div>
+          <div class="kv"><span class="k">热词</span><span class="v">3 个生效</span></div>
+          <div class="kv"><span class="k">sidecar</span><span class="v" style="color:var(--success)">127.0.0.1:4178 ✓</span></div>
+        </div>
+
+        <div class="card">
+          <h3>完成后自动</h3>
+          <div class="row"><span class="k">① 生成删词候选</span><span class="v">suggest_edits</span></div>
+          <div class="row"><span class="k">② 校验账本</span><span class="v">validate_edits</span></div>
+          <div class="row"><span class="k">③ 等待人工复核</span><span class="v">账本页</span></div>
+        </div>
+
+        <button class="btn" style="width:100%;justify-content:center">取消转录</button>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span class="dot busy"></span><span>转录中 62%</span>
+      <span>ASR sidecar：E:/videocut/asr/.venv</span>
+      <div class="right"><span>HF_HOME=E:/models/hf</span><span>videocut.exe v2.0</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 屏 3：Codex 集成面板 ============ -->
+<div class="screen" id="s3">
+  <div class="window">
+    <div class="titlebar">
+      <div class="logo">
+        <span class="ic">✂</span>
+        <div>VideoCut <small>v2.0 · Codex 集成</small></div>
+      </div>
+      <div class="seg">
+        <button>单文件</button>
+        <button>批量</button>
+        <button>合并</button>
+        <button>AI 粗剪</button>
+        <button class="on">Codex<span class="badge-new">NEW</span></button>
+      </div>
+      <div class="winctl"><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="work" style="grid-template-columns:1fr 300px">
+      <div class="main">
+        <div class="card">
+          <h3>Codex 对话（mcp-serve · stdio）<span class="chip ok">已连接</span></h3>
+          <div class="codex-chat">
+            <div class="msg user">
+              <span class="av">我</span>
+              <div class="bub">帮我粗剪 <b>@demo.mp4</b>，删掉所有"嗯"和静音，生成文字稿。</div>
+            </div>
+            <div class="msg ai">
+              <span class="av">AI</span>
+              <div class="bub">
+                好的，我将执行：转录 → 候选扫描 → 生成账本 → 校验 → 剪切 → 导稿。<br />
+                先设置热词并开始转录。
+              </div>
+            </div>
+            <div class="toolcall"><span class="st ok"></span><span class="name">videocut_set_hotwords</span><span style="color:var(--text3)">["videocut","FFmpeg"]</span><span class="ms">0.2s</span></div>
+            <div class="toolcall"><span class="st ok"></span><span class="name">videocut_process</span><span style="color:var(--text3)">demo.mp4 → output/demo</span><span class="ms">7m32s</span></div>
+            <div class="toolcall"><span class="st ok"></span><span class="name">videocut_suggest_edits</span><span style="color:var(--text3)">12 项候选（口水词 7 / 静音 5）</span><span class="ms">0.4s</span></div>
+            <div class="toolcall"><span class="st ok"></span><span class="name">videocut_validate_edits</span><span style="color:var(--text3)">账本合法，无重叠</span><span class="ms">0.1s</span></div>
+            <div class="toolcall"><span class="st ok"></span><span class="name">videocut_get_edits_summary</span><span style="color:var(--text3)">删除 29.4s · 保留 08:12.6</span><span class="ms">0.1s</span></div>
+            <div class="toolcall"><span class="st run"></span><span class="name">videocut_trim_batch</span><span style="color:var(--text3)">12 保留段 · reencode · task_8f3a</span><span class="ms">运行中 64%</span></div>
+            <div class="msg ai">
+              <span class="av">AI</span>
+              <div class="bub">
+                剪切进行中（task_8f3a，64%）。完成后我会调用 <code>videocut_export_transcript</code> 导出文字稿，并汇报产物。
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="card">
+          <h3>MCP Server <span class="chip ok">运行中</span></h3>
+          <div class="kv"><span class="k">入口</span><span class="v mono" style="font-size:10.5px">videocut.exe mcp-serve</span></div>
+          <div class="kv"><span class="k">协议</span><span class="v">stdio JSON-RPC</span></div>
+          <div class="kv"><span class="k">工具</span><span class="v">12 个已注册</span></div>
+          <div class="kv"><span class="k">启动超时</span><span class="v">30s（config.toml）</span></div>
+          <div class="kv"><span class="k">工具超时</span><span class="v">300s</span></div>
+        </div>
+
+        <div class="card">
+          <h3>ASR 设置</h3>
+          <div class="row">
+            <span class="k">模型</span>
+            <select><option>small · int8</option><option>large-v3</option></select>
+          </div>
+          <div class="row">
+            <span class="k">sidecar 端口</span>
+            <span class="v mono">127.0.0.1:4178</span>
+          </div>
+          <div class="row">
+            <span class="k">空闲回收</span>
+            <span class="v">10 分钟</span>
+          </div>
+          <div class="row" style="display:block">
+            <span class="k">热词表</span>
+            <div class="hotwords">
+              <span class="hw">videocut <i>×</i></span>
+              <span class="hw">FFmpeg <i>×</i></span>
+              <span class="hw">faster-whisper <i>×</i></span>
+              <span class="hw" style="background:var(--panel2);color:var(--text3)">+ 添加</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="warn-box" id="warnbox">
+          <b>⚠ sidecar 未就绪时</b><br />
+          调用转录类工具将返回 <code>asr_runtime_missing</code> 与安装指引（<code>scripts/bootstrap-asr.ps1</code>），Agent 不会替代实现。
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span class="dot busy"></span><span>任务 task_8f3a 进行中 64%</span>
+      <span>Codex CLI 0.154.0</span>
+      <div class="right"><span>插件：videocut-cli@local</span><span>videocut.exe v2.0</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 屏 4：浅色对比 ============ -->
+<div class="screen" id="s4">
+  <div class="window" data-theme="light" style="background:#fff;border-color:#e0e5ec">
+    <div class="titlebar" style="background:linear-gradient(180deg,#f3f5f9,#fff);border-color:#e0e5ec">
+      <div class="logo" style="color:#1f2733">
+        <span class="ic">✂</span>
+        <div>VideoCut <small style="color:#8a94a3">v2.0 · AI 粗剪</small></div>
+      </div>
+      <div class="seg" style="background:#f3f5f9;border-color:#e0e5ec">
+        <button style="color:#5b6675">单文件</button>
+        <button style="color:#5b6675">批量</button>
+        <button style="color:#5b6675">合并</button>
+        <button class="on" style="background:linear-gradient(135deg,#4f8cff,#7c5cff);color:#fff">AI 粗剪</button>
+      </div>
+      <div class="winctl"><i style="background:#e0e5ec"></i><i style="background:#e0e5ec"></i><i style="background:#f2606a88"></i></div>
+    </div>
+    <div class="work" style="grid-template-columns:1fr 300px">
+      <div class="main" style="background:#fff;border-color:#e0e5ec">
+        <div class="card" style="background:#fff;border-color:#e0e5ec">
+          <h3 style="color:#5b6675">删词账本（edits.json）<span style="color:#8a94a3">demo.mp4 · 12 项删除候选</span></h3>
+          <table class="ledger" style="color:#1f2733">
+            <thead><tr><th style="border-color:#e0e5ec;color:#8a94a3"></th><th style="border-color:#e0e5ec;color:#8a94a3">起止</th><th style="border-color:#e0e5ec;color:#8a94a3">类型</th><th style="border-color:#e0e5ec;color:#8a94a3">内容</th><th style="border-color:#e0e5ec;color:#8a94a3">理由</th><th style="border-color:#e0e5ec;color:#8a94a3"></th></tr></thead>
+            <tbody>
+              <tr><td style="border-color:#e0e5ec"><span class="sw2 on"></span></td><td class="mono" style="border-color:#e0e5ec">00:12.4 → 00:13.1</td><td style="border-color:#e0e5ec"><span class="tag filler">口水词</span></td><td style="border-color:#e0e5ec">"嗯……"</td><td style="border-color:#e0e5ec;color:#8a94a3">Codex 建议</td><td style="border-color:#e0e5ec"><button class="btn sm">试听</button></td></tr>
+              <tr><td style="border-color:#e0e5ec"><span class="sw2 on"></span></td><td class="mono" style="border-color:#e0e5ec">00:31.8 → 00:33.2</td><td style="border-color:#e0e5ec"><span class="tag silence">静音</span></td><td style="border-color:#e0e5ec">—</td><td style="border-color:#e0e5ec;color:#8a94a3">VAD &gt; 1.5s</td><td style="border-color:#e0e5ec"><button class="btn sm">试听</button></td></tr>
+              <tr><td style="border-color:#e0e5ec"><span class="sw2 on"></span></td><td class="mono" style="border-color:#e0e5ec">01:05.0 → 01:09.6</td><td style="border-color:#e0e5ec"><span class="tag retake">重拍</span></td><td style="border-color:#e0e5ec">"那个……我们来看下"</td><td style="border-color:#e0e5ec;color:#8a94a3">Codex 建议</td><td style="border-color:#e0e5ec"><button class="btn sm">试听</button></td></tr>
+              <tr><td style="border-color:#e0e5ec"><span class="sw2 on"></span></td><td class="mono" style="border-color:#e0e5ec">05:58.0 → 06:00.3</td><td style="border-color:#e0e5ec"><span class="tag silence">静音</span></td><td style="border-color:#e0e5ec">—</td><td style="border-color:#e0e5ec;color:#8a94a3">VAD &gt; 1.5s</td><td style="border-color:#e0e5ec"><button class="btn sm">试听</button></td></tr>
+            </tbody>
+          </table>
+          <div class="keep-strip" style="background:#f3f5f9;border-color:#e0e5ec">
+            <div class="seg-keep" style="left:0%;width:18%"></div>
+            <div class="seg-del" style="left:18%;width:1.4%"></div>
+            <div class="seg-keep" style="left:19.4%;width:30%"></div>
+            <div class="seg-del" style="left:49.4%;width:2%"></div>
+            <div class="seg-keep" style="left:51.4%;width:26%"></div>
+            <div class="seg-del" style="left:77.4%;width:3%"></div>
+            <div class="seg-keep" style="left:80.4%;width:19.6%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="side" style="background:#f3f5f9;border-color:#e0e5ec">
+        <div class="card" style="background:#fff;border-color:#e0e5ec">
+          <h3 style="color:#5b6675">编辑摘要 <span class="chip ok">校验通过</span></h3>
+          <div class="kv" style="color:#1f2733"><span class="k" style="color:#8a94a3">删除项</span><span class="v">5 项（已启用）</span></div>
+          <div class="kv" style="color:#1f2733"><span class="k" style="color:#8a94a3">删除总时长</span><span class="v">29.4s</span></div>
+          <div class="kv" style="color:#1f2733"><span class="k" style="color:#8a94a3">保留段</span><span class="v">12 段</span></div>
+          <div class="kv" style="color:#1f2733"><span class="k" style="color:#8a94a3">预计产物时长</span><span class="v" style="color:#4f8cff;font-weight:700">08:12.6</span></div>
+        </div>
+        <div class="card" style="background:#fff;border-color:#e0e5ec">
+          <h3 style="color:#5b6675">剪切策略</h3>
+          <div class="strategy sel" style="background:rgba(79,140,255,.1);border-color:#4f8cff">
+            <div class="t" style="color:#1f2733">精确重编码 <span class="radio"></span></div>
+            <div class="d">reencode · 逐帧精确切分，账本剪切必选</div>
+          </div>
+        </div>
+        <button class="btn pri" style="width:100%;justify-content:center;padding:9px">✂ 确认剪切</button>
+      </div>
+    </div>
+    <div class="statusbar" style="background:linear-gradient(0deg,#f3f5f9,#fff);border-color:#e0e5ec;color:#8a94a3">
+      <span class="dot"></span><span>就绪</span>
+      <div class="right"><span>策略：reencode</span><span>videocut.exe v2.0</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <b>设计说明</b>（对应开发文档 v1.7 §19）：
+  ①「AI 粗剪」为单文件工作流的延伸页签——转录（ASR sidecar）→ 候选扫描 → <b>edits 账本人工复核</b>（逐项开关/试听/保留段可视化）→ 映射 TrimBatch 物理剪切，贯彻"先复核后剪切"；
+  ② Codex 页签是 MCP 集成的可观测面板（12 工具调用轨迹 + sidecar 状态 + 热词管理），对应 §19.3/§19.7；
+  ③ 账本表格删除项支持逐项启停与"仅口水词"快捷筛选；保留段条直观展示"启用哪些删除"对产物时长的影响；
+  ④ sidecar 缺失时的降级提示（<b>asr_runtime_missing</b> + bootstrap 指引）按 §19.5 规格呈现；转录中界面标注 CPU 倍速与预计剩余时间（本地无 GPU，R21）。
+</div>
+
+<script>
+  // 屏幕切换
+  document.querySelectorAll('.screen-sw button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.screen-sw button').forEach(function (x) { x.classList.remove('on') });
+      document.querySelectorAll('.screen').forEach(function (x) { x.classList.remove('on') });
+      b.classList.add('on');
+      document.getElementById(b.dataset.screen).classList.add('on');
+    });
+  });
+  // 主题切换（屏 4 固定浅色演示）
+  function toggleTheme() {
+    var cur = document.body.getAttribute('data-theme');
+    document.body.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  }
+  // 账本开关演示
+  document.querySelectorAll('.sw2').forEach(function (s) {
+    s.addEventListener('click', function (e) {
+      e.stopPropagation();
+      s.classList.toggle('on');
+    });
+  });
+</script>
+</body>
+</html>

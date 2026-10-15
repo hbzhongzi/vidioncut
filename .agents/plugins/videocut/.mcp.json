@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "videocut": {
+      "command": "E:/videocut/build/bin/videocut.exe",
+      "args": ["mcp-serve"],
+      "enabled": true,
+      "startup_timeout_ms": 30000,
+      "tool_timeout_sec": 300
+    }
+  }
+}

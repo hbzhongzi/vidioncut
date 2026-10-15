@@ -1,0 +1,31 @@
+# Go build and test output
+*.exe
+*.test
+*.out
+.final-gocache/
+
+# Wails and local build output
+build/bin/
+
+# Frontend dependencies and generated bundles
+frontend/node_modules/
+frontend/dist/
+
+# ASR runtime, model cache and generated work files
+asr/.venv/
+asr/__pycache__/
+models/
+work/
+logs/
+*.srt
+*.ass
+motion-plan.json
+edited_fx.ass
+
+# Bundled media engine binaries are distributed separately because GitHub rejects
+# files over 100 MB. Keep the directory and copy them locally when building.
+resources/ffmpeg/*.exe
+
+# Local tooling and workspace metadata
+.workbuddy/
+.codex/

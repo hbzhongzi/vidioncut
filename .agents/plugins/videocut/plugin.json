@@ -1,0 +1,25 @@
+{
+  "name": "videocut",
+  "version": "2.0.0",
+  "description": "videocut 本地音视频裁剪与 AI 粗剪：MCP Server（stdio）+ 4 个剪片工作流技能。先复核删词账本、后物理剪切。",
+  "author": {
+    "name": "videocut"
+  },
+  "license": "MIT",
+  "keywords": ["video", "ffmpeg", "cut", "trim", "asr", "transcript", "mcp"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "videocut 视频裁剪",
+    "shortDescription": "本地视频裁剪 + AI 粗剪（删词/去静音）+ 转录导稿",
+    "longDescription": "通过本地 MCP Server（videocut.exe mcp-serve，stdio）暴露 12 个工具：探测、单段/批量裁剪、合并、任务轮询/取消、转录（faster-whisper sidecar）、删词账本校验与摘要、导稿。内置 4 个技能：cut-talking-head（口播粗剪）、transcript（转录导稿）、export（精确片段导出）、subtitle（SRT 字幕稿清理）。全程本地处理，不上传视频。",
+    "developerName": "videocut",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "帮我把这个口播视频粗剪一下，删掉口水词和静音段",
+      "把视频里的台词转成文字稿",
+      "保留 0:10-0:35 和 1:02-1:30 两段，拼成一个视频"
+    ]
+  }
+}

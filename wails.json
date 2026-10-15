@@ -1,0 +1,15 @@
+{
+  "name": "videocut",
+  "outputfilename": "videocut.exe",
+  "frontend:dir": "frontend",
+  "frontend:build:dir": "frontend/dist",
+  "frontend:build:command": "npm run build",
+  "frontend:dev:dir": "frontend",
+  "frontend:dev:command": "npm run dev",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "build:windows": {
+    "webview2": "embed",
+    "nsis": false
+  }
+}

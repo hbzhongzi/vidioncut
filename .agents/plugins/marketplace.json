@@ -1,0 +1,20 @@
+{
+  "name": "videocut-local",
+  "interface": {
+    "displayName": "videocut 本地插件市场"
+  },
+  "plugins": [
+    {
+      "name": "videocut",
+      "source": {
+        "source": "local",
+        "path": "./videocut"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_FIRST_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

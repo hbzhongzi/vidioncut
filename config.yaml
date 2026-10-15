@@ -1,0 +1,61 @@
+# videocut 配置文件（可选；不存在时全部走默认值，见 internal/config）
+# 说明：viper 加载。asr / subtitles 段为嵌套块；因 viper 的 Unmarshal 无法将带点号的
+#       mapstructure 标签（asr.enabled 等）映射到扁平字段，两段子键由
+#       config.Load() 显式读取（见 internal/config/config.go applyASRFile / subtitles.go）。
+# 本文件仅补充 asr / subtitles 段；其余项保持代码默认值，不在此覆盖。
+
+asr:
+  # 总开关：false=不启用转录（AI 粗剪/Codex 面板显示"未启用"）。
+  # 启用前请先运行 scripts/bootstrap-asr.ps1 安装 venv 与模型（约 0.5GB）。
+  # 本机已于 2026-10-14 跑通引导（venv + faster-whisper 1.2.1 + small/int8 模型已缓存），
+  # 故默认开启；若换机或未跑引导，改回 false 即可（缺失时返回 asr_runtime_missing 而非崩溃）。
+  enabled: true
+  # 仅允许回环地址，禁止对外暴露。
+  host: "127.0.0.1"
+  # sidecar 监听端口（与 asr/serve.py 一致）。
+  port: 4178
+  # 模型：small（默认，CPU int8 够用）| large-v3（更准更慢）。
+  model: "small"
+  # 计算精度：int8（CPU 量化，省内存）。
+  compute_type: "int8"
+  # 模型缓存目录：重定向到 E 盘，避免 C 盘空间不足（R23）。
+  hf_home: "E:/models/hf"
+  # venv python 路径：空=自动探测（exe 同级 asr/.venv 或 PATH python）。
+  python: ""
+  # sidecar 空闲回收分钟数（>0 时超时自动关闭进程）。
+  idle_timeout_min: 10
+  # 默认热词表（转录时透传，提升专有名词命中率）。
+  hotwords: []
+
+# M12 粗剪后字幕（字幕功能更新文档 v1.2 §4.5/§5.8；与 GUI 第三步/第四步对应）
+subtitles:
+  # 字幕模式：sidecar=外显（SRT+ASS，默认，剪映/PR 精修入口）| burn=内嵌烧录 | both=双输出。
+  mode: "sidecar"
+  # 外显格式：srt | ass | both（默认 both——SRT 通用、ASS 带样式）。
+  format: "both"
+  # ASS 样式预设：default | talking-head | minimal | custom
+  # （custom 时下方 font_name/font_size/outline_width 生效；首版三预设见 render.go Presets）。
+  style_preset: "default"
+  # 程序侧预换行：单条最大字数 / 最多行数（libass 对 CJK 自动换行支持有限，实测结论）。
+  max_chars_per_cue: 20
+  max_lines: 2
+  # custom 预设专用（style_preset=custom 时覆盖预设值；Q-04 自定义样式的落地通道）。
+  font_name: "Microsoft YaHei"
+  font_size: 48
+  outline_width: 2
+  # 内嵌烧录：画质（越小越好）/ 编码预设 / 编码器。
+  # 编码器可选 h264_nvenc | h264_qsv | h264_amf（硬件因机器而异，启动失败自动回退 libx264）。
+  burn_crf: 18
+  burn_preset: "fast"
+  burn_encoder: "libx264"
+  # 二次加工（自动特效）：auto=规则引擎自动选（默认）| off=纯静态字幕。
+  animate: "auto"
+  # 自动选择上限（超过会记入 motion-plan.json 的 rejected）。
+  max_auto_skills: 2
+  # 特效禁用清单（命中即跳过并记 rejected；如 [blur-reveal, marker-sweep]）。
+  disabled_skills: []
+  # 关键词高亮色（#RRGGBB；keyword-highlight / marker-sweep 使用）。
+  keyword_color: "#FFD700"
+  # 关键词词频阈值（停用词过滤后，出现 ≥N 次才入选；单字专名走 asr.hotwords 白名单）。
+  keyword_min_freq: 3
+

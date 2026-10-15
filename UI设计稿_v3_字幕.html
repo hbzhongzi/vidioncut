@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VideoCut UI 设计稿 v3 · 粗剪后字幕（分段 / 添加 / 二次加工）</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0e1013;
+    --panel: #16191f;
+    --panel2: #1d222a;
+    --border: #282e38;
+    --text: #e8eaee;
+    --text2: #9aa4b2;
+    --text3: #66707e;
+    --accent: #4f8cff;
+    --accent2: #7c5cff;
+    --accent-soft: rgba(79, 140, 255, .14);
+    --success: #3fb96f;
+    --danger: #f2606a;
+    --warning: #e8a33d;
+    --shadow: 0 18px 60px rgba(0, 0, 0, .5);
+  }
+  body[data-theme="light"] {
+    --bg: #e9edf2;
+    --panel: #ffffff;
+    --panel2: #f3f5f9;
+    --border: #e0e5ec;
+    --text: #1f2733;
+    --text2: #5b6675;
+    --text3: #8a94a3;
+    --accent-soft: rgba(79, 140, 255, .12);
+    --shadow: 0 18px 60px rgba(31, 39, 51, .18);
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, "Microsoft YaHei", sans-serif;
+    min-height: 100vh;
+    padding: 26px 20px 56px;
+    transition: background .2s;
+  }
+  .page-head { text-align: center; margin-bottom: 18px; }
+  .page-head h1 { font-size: 17px; font-weight: 700; letter-spacing: .5px; }
+  .page-head p { font-size: 12px; color: var(--text3); margin-top: 5px; }
+  .page-head .sw {
+    display: inline-flex; align-items: center; gap: 7px; margin-top: 10px;
+    font-size: 12px; color: var(--text2); background: var(--panel);
+    border: 1px solid var(--border); border-radius: 20px; padding: 5px 13px; cursor: pointer;
+  }
+  .page-head .sw:hover { color: var(--text); }
+  .screen-sw { display: flex; justify-content: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .screen-sw button {
+    border: 1px solid var(--border); background: var(--panel); color: var(--text2);
+    padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: .15s;
+  }
+  .screen-sw button:hover { color: var(--text); }
+  .screen-sw button.on {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-color: transparent; color: #fff; font-weight: 600;
+  }
+  .screen { display: none; }
+  .screen.on { display: block; }
+
+  /* ===== 模拟应用窗口 ===== */
+  .window {
+    max-width: 1180px; margin: 0 auto;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; box-shadow: var(--shadow); overflow: hidden;
+  }
+  .titlebar {
+    height: 54px; display: flex; align-items: center; gap: 14px; padding: 0 14px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, var(--panel2), var(--panel));
+  }
+  .logo { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700; }
+  .logo .ic {
+    width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff;
+  }
+  .logo small { font-size: 11px; color: var(--text3); font-weight: 500; margin-left: 2px; }
+  .seg { display: flex; background: var(--panel2); border: 1px solid var(--border); border-radius: 9px; padding: 3px; gap: 2px; margin: 0 auto; }
+  .seg button {
+    border: 0; background: transparent; color: var(--text2);
+    padding: 6px 16px; border-radius: 7px; font-size: 13px; cursor: pointer; transition: .15s;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .seg button:hover { color: var(--text); }
+  .seg button.on { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-weight: 600; }
+  .seg .badge-new {
+    font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 5px;
+    background: var(--accent-soft); color: var(--accent); letter-spacing: .5px;
+  }
+  .seg button.on .badge-new { background: rgba(255,255,255,.22); color: #fff; }
+  .winctl { display: flex; gap: 8px; }
+  .winctl i { width: 11px; height: 11px; border-radius: 50%; background: var(--border); }
+  .winctl i:first-child { background: #f2606a88; }
+
+  /* ===== 双栏工作台 ===== */
+  .work { display: grid; grid-template-columns: 1fr 320px; min-height: 560px; }
+  .main { padding: 16px; display: flex; flex-direction: column; gap: 14px; border-right: 1px solid var(--border); }
+  .side { padding: 16px; display: flex; flex-direction: column; gap: 14px; background: var(--panel2); }
+
+  .card {
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 11px; padding: 13px 14px;
+  }
+  .main .card { background: var(--panel); }
+  .card h3 { font-size: 12px; color: var(--text2); font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+  .card h3 .hint { font-size: 11px; color: var(--text3); font-weight: 400; }
+
+  /* ===== 步骤指示（AI 粗剪第三步） ===== */
+  .steps { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .steps .st { display: flex; align-items: center; gap: 7px; color: var(--text3); }
+  .steps .st .n {
+    width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center;
+    border: 1px solid var(--border); font-size: 10px; font-weight: 700; background: var(--panel2);
+  }
+  .steps .st.done { color: var(--text2); }
+  .steps .st.done .n { background: rgba(63,185,111,.15); border-color: rgba(63,185,111,.45); color: var(--success); }
+  .steps .st.cur { color: var(--text); font-weight: 600; }
+  .steps .st.cur .n { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; }
+  .steps .ar { color: var(--text3); font-size: 11px; }
+
+  /* ===== 预览区（带烧录字幕示意） ===== */
+  .preview {
+    background: #000; border-radius: 10px; aspect-ratio: 16/9; position: relative; overflow: hidden;
+    display: grid; place-items: center; border: 1px solid var(--border);
+  }
+  .preview .scene {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(60% 48% at 50% 34%, rgba(79,140,255,.20), transparent 70%),
+      radial-gradient(38% 30% at 78% 70%, rgba(124,92,255,.16), transparent 70%),
+      linear-gradient(180deg, #10141b, #0a0d12);
+  }
+  .preview .person {
+    position: absolute; left: 50%; top: 40%; transform: translate(-50%,-50%);
+    width: 84px; height: 84px; border-radius: 50%;
+    background: linear-gradient(160deg, #2a3342, #1a2029);
+    border: 1px solid rgba(255,255,255,.07);
+    display: grid; place-items: center; color: var(--text3); font-size: 10px;
+  }
+  .preview .ph { color: var(--text3); font-size: 12px; text-align: center; position: relative; }
+  .preview .ctrl {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 38px;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,.82));
+    display: flex; align-items: center; gap: 10px; padding: 0 12px; z-index: 3;
+  }
+  .preview .ctrl button { border: 0; background: none; color: #fff; cursor: pointer; font-size: 13px; display: grid; place-items: center; }
+  .preview .ctrl .t { color: #cfd6e0; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .preview .ctrl .seek { flex: 1; height: 4px; border-radius: 3px; background: rgba(255,255,255,.22); position: relative; }
+  .preview .ctrl .seek .buf { position: absolute; inset: 0 34% 0 0; background: var(--accent); border-radius: 3px; }
+  .preview .ctrl .seek .dot { position: absolute; left: 34%; top: 50%; transform: translate(-50%,-50%); width: 9px; height: 9px; border-radius: 50%; background: #fff; }
+  .preview .ctrl .vol { width: 52px; height: 4px; border-radius: 3px; background: rgba(255,255,255,.22); position: relative; }
+  .preview .ctrl .vol::after { content: ""; position: absolute; inset: 0 30% 0 0; background: #cfd6e0; border-radius: 3px; }
+
+  /* 烧录字幕条（画面内） */
+  .burn-sub {
+    position: absolute; left: 0; right: 0; bottom: 46px; text-align: center; z-index: 2;
+    pointer-events: none; padding: 0 40px;
+  }
+  .burn-sub span {
+    display: inline-block; color: #fff; font-size: 15px; font-weight: 600; line-height: 1.45;
+    text-shadow: 0 0 4px #000, 0 2px 3px rgba(0,0,0,.9), -1px 0 2px #000, 1px 0 2px #000;
+    letter-spacing: .5px;
+  }
+  .preview .burn-tag {
+    position: absolute; top: 10px; left: 10px; z-index: 3;
+    font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+    background: rgba(0,0,0,.55); color: #ffd98a; border: 1px solid rgba(232,163,61,.4);
+  }
+
+  /* ===== 模式单选卡片 ===== */
+  .strategy {
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 11px; cursor: pointer;
+    transition: .15s; margin-bottom: 8px; background: var(--panel);
+  }
+  .strategy:hover { border-color: var(--text3); }
+  .strategy.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .strategy .t { font-size: 12.5px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; }
+  .strategy .t .def { font-size: 9px; font-weight: 700; color: var(--success); background: rgba(63,185,111,.13); padding: 1px 6px; border-radius: 5px; }
+  .strategy .d { font-size: 11px; color: var(--text3); margin-top: 4px; line-height: 1.5; }
+  .strategy .d b { color: var(--text2); font-weight: 600; }
+  .radio { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--text3); flex: none; }
+  .strategy.sel .radio { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 2.5px var(--panel); }
+
+  /* ===== 样式预设行 ===== */
+  .presets { display: flex; gap: 7px; }
+  .preset {
+    flex: 1; border: 1px solid var(--border); border-radius: 9px; padding: 8px 6px; text-align: center;
+    cursor: pointer; transition: .15s; background: var(--panel);
+  }
+  .preset:hover { border-color: var(--text3); }
+  .preset.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .preset .pv {
+    height: 26px; border-radius: 6px; background: #000; margin-bottom: 6px; position: relative; overflow: hidden;
+    display: grid; place-items: end center; padding-bottom: 3px;
+  }
+  .preset .pv i { display: block; width: 62%; height: 3px; border-radius: 2px; background: rgba(255,255,255,.85); }
+  .preset .pv.thick i { height: 4.5px; box-shadow: 0 0 2px #000; }
+  .preset .pv.thin i { width: 44%; height: 2px; opacity: .8; }
+  .preset .nm { font-size: 10.5px; color: var(--text2); }
+  .preset.sel .nm { color: var(--accent); font-weight: 600; }
+
+  /* ===== 参数行 ===== */
+  .row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .row:last-child { border-bottom: 0; }
+  .row .k { color: var(--text2); }
+  .row .k small { display: block; color: var(--text3); font-size: 10.5px; margin-top: 2px; }
+  .num {
+    display: inline-flex; align-items: center; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 7px; overflow: hidden;
+  }
+  .num button { border: 0; background: none; color: var(--text2); width: 22px; height: 24px; cursor: pointer; font-size: 13px; }
+  .num button:hover { color: var(--text); background: var(--panel2); }
+  .num span { min-width: 30px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+  /* ===== 按钮 ===== */
+  .btn {
+    border: 1px solid var(--border); background: var(--panel2); color: var(--text2);
+    padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: .15s;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .btn:hover { color: var(--text); border-color: var(--text3); }
+  .btn.pri {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-color: transparent; color: #fff; font-weight: 600;
+  }
+  .btn.pri:hover { filter: brightness(1.12); }
+  .btn.wide { justify-content: center; width: 100%; padding: 9px 12px; font-size: 12.5px; }
+  .btn.sm { padding: 4px 9px; font-size: 11px; border-radius: 7px; }
+  .btn[disabled] { opacity: .45; pointer-events: none; }
+
+  /* ===== 字幕条列表 ===== */
+  .cue-tools { display: flex; gap: 8px; align-items: center; }
+  .cue-tools .flt { font-size: 11px; color: var(--text3); display: flex; align-items: center; gap: 5px; }
+  table.cues { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.cues th {
+    text-align: left; color: var(--text3); font-weight: 500; font-size: 11px;
+    padding: 7px 8px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  table.cues td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  table.cues tr:last-child td { border-bottom: 0; }
+  table.cues tr:hover td { background: var(--accent-soft); }
+  table.cues tr.cut td { opacity: .4; }
+  table.cues tr.cur td { background: var(--accent-soft); }
+  .mono { font-variant-numeric: tabular-nums; font-family: Consolas, monospace; font-size: 11px; }
+  .join-ic { color: var(--accent); font-size: 10px; font-weight: 700; margin-left: 5px; white-space: nowrap; }
+  .lines-badge {
+    display: inline-block; font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 5px;
+    background: var(--accent-soft); color: var(--accent);
+  }
+
+  /* ===== 输出清单 ===== */
+  .out-list { display: flex; flex-direction: column; gap: 6px; }
+  .out-item {
+    display: flex; align-items: center; gap: 8px; font-size: 11.5px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+  }
+  .out-item .ck { color: var(--success); font-weight: 700; font-size: 11px; }
+  .out-item .nm { font-family: Consolas, monospace; font-size: 11px; color: var(--text); }
+  .out-item .sz { margin-left: auto; color: var(--text3); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .out-item.warn .ck { color: var(--warning); }
+
+  /* ===== 侧栏 KV ===== */
+  .kv { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; }
+  .kv .k { color: var(--text3); }
+  .kv .v { color: var(--text); font-variant-numeric: tabular-nums; }
+  .kv .v.hl { color: var(--accent); font-weight: 600; }
+
+  /* ===== 烧录进度 ===== */
+  .burn { display: flex; align-items: center; gap: 12px; }
+  .burn .spin {
+    width: 34px; height: 34px; border-radius: 50%; flex: none;
+    border: 3px solid var(--border); border-top-color: var(--warning);
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .burn .info { flex: 1; }
+  .burn .info .t1 { font-size: 13px; font-weight: 600; }
+  .burn .info .t2 { font-size: 11px; color: var(--text3); margin-top: 3px; }
+  .bar { height: 7px; border-radius: 5px; background: var(--panel2); overflow: hidden; margin-top: 9px; border: 1px solid var(--border); }
+  .bar i { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--warning), #f2b95e); }
+  .burn .pct { font-size: 17px; font-weight: 700; color: var(--warning); font-variant-numeric: tabular-nums; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 600;
+    padding: 2px 8px; border-radius: 6px; background: var(--accent-soft); color: var(--accent);
+  }
+  .chip.cpu { background: rgba(232,163,61,.13); color: var(--warning); }
+  .chip.ok { background: rgba(63,185,111,.13); color: var(--success); }
+  .chip.enc { background: rgba(124,92,255,.15); color: var(--accent2); font-family: Consolas, monospace; }
+
+  /* ===== 二次加工：内容特征分析维度 ===== */
+  .dim { display: flex; align-items: center; gap: 10px; padding: 6.5px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .dim:last-child { border-bottom: 0; }
+  .dim .k { width: 84px; color: var(--text2); flex: none; }
+  .dim .bar { flex: 1; margin-top: 0; height: 6px; }
+  .dim .bar i { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+  .dim .v { width: 128px; text-align: right; color: var(--text); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .dim .v.hi { color: var(--warning); font-weight: 600; }
+
+  /* ===== 特效 chips（选中 / 已跳过） ===== */
+  .skills-label { font-size: 11px; color: var(--text3); margin: 11px 0 6px; }
+  .skills { display: flex; flex-wrap: wrap; gap: 7px; }
+  .skill {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px;
+    padding: 5px 10px; border-radius: 8px; cursor: default;
+    border: 1px solid rgba(63,185,111,.42); background: rgba(63,185,111,.10); color: var(--text);
+  }
+  .skill .ic { color: var(--success); font-weight: 700; font-size: 10px; }
+  .skill .rs { font-size: 10px; color: var(--text3); }
+  .skill.off { border-color: var(--border); background: var(--panel2); color: var(--text3); }
+  .skill.off .ic { color: var(--text3); }
+
+  /* ===== motion-plan.json 预览 ===== */
+  .json {
+    font-family: Consolas, monospace; font-size: 10.5px; line-height: 1.75;
+    background: #0b0e13; border: 1px solid var(--border); border-radius: 8px;
+    padding: 11px 13px; overflow: auto; color: #b8c4d4; white-space: pre;
+  }
+  body[data-theme="light"] .json { background: #f6f8fb; color: #41506a; }
+  .json .jk { color: #7c5cff; }
+  .json .js { color: #3fb96f; }
+  .json .jn { color: #e8a33d; }
+
+  /* 烧录字幕条内的关键词高亮 / 卡拉OK填充示意 */
+  .burn-sub .kw { color: #ffd98a; }
+  .burn-sub .fill {
+    background: linear-gradient(90deg, #ffd98a 58%, rgba(255,255,255,.88) 58%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+
+  /* ===== Codex 面板 ===== */
+  .codex-chat { display: flex; flex-direction: column; gap: 10px; font-size: 12px; }
+  .msg { display: flex; gap: 9px; }
+  .msg .av {
+    width: 24px; height: 24px; border-radius: 7px; flex: none; display: grid; place-items: center;
+    font-size: 10px; font-weight: 700;
+  }
+  .msg.user .av { background: var(--panel2); color: var(--text2); border: 1px solid var(--border); }
+  .msg.ai .av { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .msg .bub { background: var(--panel2); border: 1px solid var(--border); border-radius: 9px; padding: 8px 11px; line-height: 1.6; color: var(--text2); flex: 1; }
+  .msg .bub b { color: var(--text); font-weight: 600; }
+  .msg .bub code {
+    font-family: Consolas, monospace; font-size: 11px; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 5px; padding: 1px 5px; color: var(--accent);
+  }
+  .toolcall {
+    display: flex; align-items: center; gap: 9px; background: var(--panel);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; font-size: 11.5px;
+  }
+  .toolcall .st { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .toolcall .st.ok { background: var(--success); }
+  .toolcall .st.run { background: var(--warning); animation: pulse 1.2s infinite; }
+  .toolcall .st.err { background: var(--danger); }
+  .toolcall .name { font-family: Consolas, monospace; color: var(--accent); font-size: 11px; }
+  .toolcall .args { color: var(--text3); font-size: 10.5px; font-family: Consolas, monospace; }
+  .toolcall .ms { margin-left: auto; color: var(--text3); font-variant-numeric: tabular-nums; }
+
+  /* 状态栏 */
+  .statusbar {
+    height: 34px; display: flex; align-items: center; gap: 16px; padding: 0 14px;
+    border-top: 1px solid var(--border); font-size: 11px; color: var(--text3);
+    background: linear-gradient(0deg, var(--panel2), var(--panel));
+  }
+  .statusbar .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+  .statusbar .dot.busy { background: var(--warning); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .statusbar .right { margin-left: auto; display: flex; gap: 16px; }
+
+  .note {
+    max-width: 1180px; margin: 16px auto 0; font-size: 12px; color: var(--text2);
+    background: var(--panel); border: 1px solid var(--border); border-radius: 11px;
+    padding: 13px 16px; line-height: 1.75;
+  }
+  .note b { color: var(--text); }
+</style>
+</head>
+<body data-theme="dark">
+
+<div class="page-head">
+  <h1>VideoCut UI 设计稿 v3 · 粗剪后字幕（分段与添加）</h1>
+  <p>M12 字幕功能 · 外显（SRT/ASS）· 内嵌（Burn-in）· 双输出 — 对应《字幕功能更新文档》与开发文档 §19.14</p>
+  <div class="sw" onclick="toggleTheme()">🌗 切换深色 / 浅色</div>
+  <div class="screen-sw">
+    <button class="on" data-screen="s1">AI 粗剪 · 字幕工作台（外显）</button>
+    <button data-screen="s2">字幕烧录中（内嵌）</button>
+    <button data-screen="s3">Codex 面板 · 字幕轨迹</button>
+    <button data-screen="s4">字幕二次加工 · 自动特效</button>
+    <button data-screen="s5">浅色主题对比</button>
+  </div>
+</div>
+
+<!-- ========== 屏 1：字幕工作台（外显） ========== -->
+<div class="screen on" id="s1">
+  <div class="window">
+    <div class="titlebar">
+      <div class="logo"><span class="ic">✂</span>VideoCut <small>v1.9</small></div>
+      <div class="seg">
+        <button>单文件</button>
+        <button>批量</button>
+        <button>合并</button>
+        <button class="on">AI 粗剪 <span class="badge-new">字幕</span></button>
+        <button>Codex</button>
+      </div>
+      <div class="winctl"><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="work">
+      <div class="main">
+        <!-- 步骤指示 -->
+        <div class="steps">
+          <span class="st done"><span class="n">✓</span>转录 + 候选扫描</span><span class="ar">→</span>
+          <span class="st done"><span class="n">✓</span>账本复核 + 剪切</span><span class="ar">→</span>
+          <span class="st cur"><span class="n">3</span>字幕（重对齐 + 呈现）</span>
+        </div>
+
+        <!-- 成片预览（外显模式：画面无字幕，列表看文本） -->
+        <div class="preview">
+          <div class="scene"></div>
+          <div class="person">成片画面</div>
+          <div class="ph" style="position:absolute; top:10px; right:10px; font-size:10px;">外显模式：字幕不入画面</div>
+          <div class="ctrl">
+            <button>▶</button><span class="t">00:03.2 / 06:26.0</span>
+            <div class="seek"><span class="buf"></span><span class="dot"></span></div>
+            <div class="vol"></div>
+          </div>
+        </div>
+
+        <!-- 字幕条列表（成片时间轴） -->
+        <div class="card">
+          <h3>
+            字幕条预览（成片时间轴 · 已重对齐）
+            <div class="cue-tools">
+              <span class="flt"><span class="sw2 on" style="width:26px;height:15px;"></span>仅显示跨段断开</span>
+              <button class="btn sm">↻ 重新生成</button>
+            </div>
+          </h3>
+          <table class="cues">
+            <thead>
+              <tr><th style="width:34px">#</th><th style="width:150px">成片时间</th><th>文本</th><th style="width:56px">行数</th><th style="width:52px"></th></tr>
+            </thead>
+            <tbody>
+              <tr class="cur"><td class="mono">7</td><td class="mono">00:14.200 → 00:16.050</td><td>这一部分我们留到下一节再讲，</td><td><span class="lines-badge">1 行</span></td><td><button class="btn sm">试听</button></td></tr>
+              <tr><td class="mono">8</td><td class="mono">00:16.400 → 00:19.800</td><td>先来看这三个关键参数——<span class="join-ic">⚡跨段词级断开</span></td><td><span class="lines-badge">2 行</span></td><td><button class="btn sm">试听</button></td></tr>
+              <tr class="cut"><td class="mono">—</td><td class="mono">（源 02:41.0 → 02:42.3）</td><td>呃……这个嘛……（口水词，已随删除段剔除）</td><td><span class="lines-badge">剔除</span></td><td></td></tr>
+              <tr><td class="mono">9</td><td class="mono">00:20.100 → 00:23.600</td><td>第一个是采样率，它决定了音质的</td><td><span class="lines-badge">2 行</span></td><td><button class="btn sm">试听</button></td></tr>
+              <tr><td class="mono">10</td><td class="mono">00:23.900 → 00:25.400</td><td>上限，一般来说 48kHz 就足够了</td><td><span class="lines-badge">1 行</span></td><td><button class="btn sm">试听</button></td></tr>
+              <tr><td class="mono">11</td><td class="mono">00:25.700 → 00:28.900</td><td>第二个参数是位深，16bit 和 24bit 的</td><td><span class="lines-badge">2 行</span></td><td><button class="btn sm">试听</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 侧栏 -->
+      <div class="side">
+        <div class="card">
+          <h3>呈现模式 <span class="hint">默认外显</span></h3>
+          <div class="strategy sel">
+            <div class="t"><span>外显（Sidecar）</span><span class="def">默认</span></div>
+            <div class="d">独立 <b>SRT / ASS</b> 文件，不入画面。可导入剪映 / PR 作为可编辑字幕轨道，播放器可开关。</div>
+          </div>
+          <div class="strategy">
+            <div class="t"><span>内嵌（Burn-in）</span><span class="radio"></span></div>
+            <div class="d">字幕<b>烧录进画面</b>，直接分发。需重编码（音轨直复制），预览内可见。</div>
+          </div>
+          <div class="strategy">
+            <div class="t"><span>双输出（Both）</span><span class="radio"></span></div>
+            <div class="d">同时产出<b>无字幕版 + 烧录版 + SRT + ASS</b>，兼顾分发与精修。</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>样式预设 <span class="hint">ASS 生效</span></h3>
+          <div class="presets">
+            <div class="preset sel"><div class="pv"><i></i></div><div class="nm">default</div></div>
+            <div class="preset"><div class="pv thick"><i></i></div><div class="nm">talking-head</div></div>
+            <div class="preset"><div class="pv thin"><i></i></div><div class="nm">minimal</div></div>
+          </div>
+          <div style="font-size:10.5px; color:var(--text3); margin-top:8px; line-height:1.5;">雅黑 48px · 2px 黑边 · 底部居中</div>
+        </div>
+
+        <div class="card">
+          <h3>分段参数</h3>
+          <div class="row"><span class="k">单条最大字数<small>超长按词边界预换行</small></span><span class="num"><button>−</button><span>20</span><button>＋</button></span></div>
+          <div class="row"><span class="k">最多行数<small>ASS 写 \N / SRT 真实换行</small></span><span class="num"><button>−</button><span>2</span><button>＋</button></span></div>
+        </div>
+
+        <div class="card">
+          <h3>输出清单 <span class="hint">sidecar</span></h3>
+          <div class="out-list">
+            <div class="out-item"><span class="ck">✓</span><span class="nm">edited.mp4</span><span class="sz">成片 · 无字幕</span></div>
+            <div class="out-item"><span class="ck">✓</span><span class="nm">edited.srt</span><span class="sz">38 条 · 12 KB</span></div>
+            <div class="out-item"><span class="ck">✓</span><span class="nm">edited.ass</span><span class="sz">38 条 · 16 KB</span></div>
+            <div class="out-item"><span class="ck">✓</span><span class="nm">transcript.md</span><span class="sz">文字稿 · 源轴</span></div>
+          </div>
+          <div style="display:flex; gap:7px; margin-top:10px;">
+            <button class="btn pri wide">导出字幕（秒级）</button>
+          </div>
+          <div style="display:flex; gap:7px; margin-top:7px;">
+            <button class="btn wide" style="flex:1">打开所在文件夹</button>
+            <button class="btn wide" style="flex:1">改为烧录 →</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="kv"><span class="k">成片时长</span><span class="v">06:26.0</span></div>
+          <div class="kv"><span class="k">源时长</span><span class="v">12:03.2</span></div>
+          <div class="kv"><span class="k">字幕条数</span><span class="v hl">38（剔除 7 条）</span></div>
+          <div class="kv"><span class="k">跨段断开</span><span class="v">3 处（词级）</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span class="dot"></span><span>字幕就绪 · 成片时间轴已对齐</span>
+      <div class="right"><span>模式：外显</span><span>ASR：sidecar 就绪</span><span>v1.9</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 屏 2：字幕烧录中（内嵌） ========== -->
+<div class="screen" id="s2">
+  <div class="window">
+    <div class="titlebar">
+      <div class="logo"><span class="ic">✂</span>VideoCut <small>v1.9</small></div>
+      <div class="seg">
+        <button>单文件</button>
+        <button>批量</button>
+        <button>合并</button>
+        <button class="on">AI 粗剪 <span class="badge-new">字幕</span></button>
+        <button>Codex</button>
+      </div>
+      <div class="winctl"><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="work">
+      <div class="main">
+        <div class="steps">
+          <span class="st done"><span class="n">✓</span>转录 + 候选扫描</span><span class="ar">→</span>
+          <span class="st done"><span class="n">✓</span>账本复核 + 剪切</span><span class="ar">→</span>
+          <span class="st cur"><span class="n">3</span>字幕烧录中…</span>
+        </div>
+
+        <!-- 烧录预览：字幕已在画面中 -->
+        <div class="preview">
+          <div class="scene"></div>
+          <div class="person">成片画面</div>
+          <div class="burn-tag">BURN-IN · edited_burned.mp4</div>
+          <div class="burn-sub"><span>先来看这三个关键参数——<br />采样率、位深和声道数</span></div>
+          <div class="ctrl">
+            <button>▶</button><span class="t">00:23.9 / 06:26.0</span>
+            <div class="seek"><span class="buf" style="inset:0 62% 0 0"></span><span class="dot" style="left:38%"></span></div>
+            <div class="vol"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>烧录进度 <span class="hint">音轨 -c:a copy 直复制，不重编码</span></h3>
+          <div class="burn">
+            <div class="spin"></div>
+            <div class="info">
+              <div class="t1">正在烧录字幕到画面…</div>
+              <div class="t2">ffmpeg · ass 滤镜 · libass 0.17.5（DirectWrite 系统字体）</div>
+              <div class="bar"><i style="width:38%"></i></div>
+            </div>
+            <div class="pct">38%</div>
+          </div>
+          <div style="display:flex; gap:6px; margin-top:10px;">
+            <span class="chip enc">libx264</span>
+            <span class="chip cpu">CPU · preset fast</span>
+            <span class="chip">crf 18</span>
+            <span class="chip">≈ 2.4× 实时</span>
+            <span class="chip ok">预计剩余 04:51</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>正在写入的字幕条 <span class="hint">与导出清单同源</span></h3>
+          <table class="cues">
+            <thead><tr><th style="width:34px">#</th><th style="width:150px">成片时间</th><th>文本</th></tr></thead>
+            <tbody>
+              <tr class="cur"><td class="mono">10</td><td class="mono">00:23.900 → 00:25.400</td><td>第一个是采样率，它决定了音质的</td></tr>
+              <tr><td class="mono">11</td><td class="mono">00:25.700 → 00:28.900</td><td>第二个参数是位深，16bit 和 24bit 的</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="card">
+          <h3>任务</h3>
+          <div class="kv"><span class="k">task_id</span><span class="v mono" style="font-size:10.5px">burn_7f3a…c1</span></div>
+          <div class="kv"><span class="k">类型</span><span class="v">字幕烧录（单项批量）</span></div>
+          <div class="kv"><span class="k">输入</span><span class="v mono" style="font-size:10.5px">edited.mp4</span></div>
+          <div class="kv"><span class="k">字幕</span><span class="v mono" style="font-size:10.5px">edited.ass</span></div>
+          <div class="kv"><span class="k">输出</span><span class="v mono" style="font-size:10.5px">edited_burned.mp4</span></div>
+        </div>
+        <div class="card">
+          <h3>输出清单 <span class="hint">burn</span></h3>
+          <div class="out-list">
+            <div class="out-item"><span class="ck">✓</span><span class="nm">edited.mp4</span><span class="sz">成片 · 无字幕</span></div>
+            <div class="out-item warn"><span class="ck">…</span><span class="nm">edited_burned.mp4</span><span class="sz">烧录中 38%</span></div>
+            <div class="out-item"><span class="ck">✓</span><span class="nm">edited.srt / .ass</span><span class="sz">外挂仍保留</span></div>
+          </div>
+        </div>
+        <div style="display:flex; gap:7px;">
+          <button class="btn wide">取消烧录</button>
+          <button class="btn wide" disabled>完成</button>
+        </div>
+        <div style="font-size:10.5px; color:var(--text3); line-height:1.6;">
+          烧录为独立异步任务（复用批量任务契约，<span class="mono">trim:progress</span> 上报进度）；GPU 编码（NVENC / QSV / AMF）可在配置中选择，启动失败自动回退 libx264。
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span class="dot busy"></span><span>烧录中 · 38%</span>
+      <div class="right"><span>模式：内嵌</span><span>编码：libx264 · crf 18</span><span>v1.9</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 屏 3：Codex 面板 · 字幕轨迹 ========== -->
+<div class="screen" id="s3">
+  <div class="window">
+    <div class="titlebar">
+      <div class="logo"><span class="ic">✂</span>VideoCut <small>v1.9</small></div>
+      <div class="seg">
+        <button>单文件</button>
+        <button>批量</button>
+        <button>合并</button>
+        <button>AI 粗剪 <span class="badge-new">字幕</span></button>
+        <button class="on">Codex</button>
+      </div>
+      <div class="winctl"><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="work" style="grid-template-columns: 1fr 300px;">
+      <div class="main">
+        <div class="card">
+          <h3>对话轨迹 <span class="hint">MCP 15 工具 · stdio</span></h3>
+          <div class="codex-chat">
+            <div class="msg user"><span class="av">我</span><div class="bub">把这个口播片粗剪一下，删掉口水词和长静音，然后<b>生成字幕</b>，我要拿剪映再精修</div></div>
+            <div class="msg ai"><span class="av">AI</span><div class="bub">好的，按"先复核后剪切"流程处理：转录 → 候选 → 账本复核 → 剪切 → 合并，最后按<b>默认外显模式</b>导出 SRT + ASS（剪映可直接导入为字幕轨道）</div></div>
+            <div class="toolcall"><span class="st ok"></span><span class="name">videocut_process</span><span class="args">video_path=…, language=zh</span><span class="ms">12.0s</span></div>
+            <div class="toolcall"><span class="st ok"></span><span class="name">videocut_suggest_edits</span><span class="args">base_dir=…</span><span class="ms">8ms</span></div>
+            <div class="toolcall"><span class="st ok"></span><span class="name">videocut_trim_batch</span><span class="args">6 items · reencode</span><span class="ms">9.4s</span></div>
+            <div class="toolcall"><span class="st ok"></span><span class="name">videocut_merge</span><span class="args">mode=auto</span><span class="ms">6.2s</span></div>
+            <div class="toolcall"><span class="st ok"></span><span class="name">videocut_export_subtitles</span><span class="args">format=both, preset=default</span><span class="ms">21ms</span></div>
+            <div class="toolcall"><span class="st ok"></span><span class="name">videocut_animate_captions</span><span class="args">animate=auto → 2 skills</span><span class="ms">18ms</span></div>
+            <div class="msg ai"><span class="av">AI</span><div class="bub">成片与字幕已就绪：<code>edited.mp4</code>（6:26）+ <code>edited.srt</code> / <code>edited.ass</code>（38 条，成片时间轴，跨段 3 处词级断开）。剪映导入步骤见 <code>cut-talking-head</code> 技能说明。需要分发版可再跑 <code>videocut_burn_subtitles</code> 烧录。</div></div>
+            <div class="msg ai"><span class="av">AI</span><div class="bub">另外按字幕特征自动应用了 2 个特效：<code>marker-sweep</code>（Level 1 内容类型 = 教程）+ <code>keyword-highlight</code>（Level 2 关键词密度 0.82），产物 <code>edited_fx.ass</code>，选择理由在 <code>motion-plan.json</code> 里可查；不想要的特效可以随时禁用。</div></div>
+            <div class="toolcall"><span class="st run"></span><span class="name">videocut_burn_subtitles</span><span class="args">encoder=libx264（用户追加）</span><span class="ms">进行中 38%</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="card">
+          <h3>ASR 状态</h3>
+          <div class="kv"><span class="k">sidecar</span><span class="v" style="color:var(--success)">● 就绪</span></div>
+          <div class="kv"><span class="k">模型</span><span class="v">small · int8</span></div>
+          <div class="kv"><span class="k">热词</span><span class="v">3 条</span></div>
+          <div class="kv"><span class="k">词级时间戳</span><span class="v" style="color:var(--success)">✓ 90 词</span></div>
+        </div>
+        <div class="card">
+          <h3>字幕配置 <span class="hint">config.yaml</span></h3>
+          <div class="kv"><span class="k">subtitles.mode</span><span class="v">sidecar</span></div>
+          <div class="kv"><span class="k">subtitles.format</span><span class="v">both</span></div>
+          <div class="kv"><span class="k">style_preset</span><span class="v">default</span></div>
+          <div class="kv"><span class="k">max_chars_per_cue</span><span class="v">20</span></div>
+          <div class="kv"><span class="k">burn_encoder</span><span class="v">libx264</span></div>
+        </div>
+        <div class="card">
+          <h3>技能</h3>
+          <div style="font-size:11.5px; color:var(--text2); line-height:1.7;">
+            <b style="color:var(--text)">cut-talking-head</b>：口播粗剪 + 字幕全流程（默认外显，剪映精修）<br />
+            <b style="color:var(--text)">subtitle</b>：字幕重对齐 / 导出 / 烧录
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span class="dot busy"></span><span>烧录任务进行中 · 38%</span>
+      <div class="right"><span>工具调用 7/15</span><span>MCP：stdio 本地</span><span>v1.9</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 屏 4：字幕二次加工 · 自动特效 ========== -->
+<div class="screen" id="s4">
+  <div class="window">
+    <div class="titlebar">
+      <div class="logo"><span class="ic">✂</span>VideoCut <small>v1.9</small></div>
+      <div class="seg">
+        <button>单文件</button>
+        <button>批量</button>
+        <button>合并</button>
+        <button class="on">AI 粗剪 <span class="badge-new">字幕 · 特效</span></button>
+        <button>Codex</button>
+      </div>
+      <div class="winctl"><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="work" style="grid-template-columns: 1fr 300px;">
+      <div class="main">
+        <div class="steps">
+          <span class="st done"><span class="n">✓</span>转录 + 候选扫描</span><span class="ar">→</span>
+          <span class="st done"><span class="n">✓</span>账本复核 + 剪切</span><span class="ar">→</span>
+          <span class="st done"><span class="n">✓</span>字幕（外显）</span><span class="ar">→</span>
+          <span class="st cur"><span class="n">4</span>二次加工（自动特效）</span>
+        </div>
+        <div class="preview">
+          <div class="scene"></div>
+          <div class="person">成片画面</div>
+          <div class="burn-tag">特效预览 · marker-sweep + keyword-highlight</div>
+          <div class="burn-sub"><span>把项目<span class="kw">克隆</span>到本地之后<br /><span class="fill">先安装依赖，再跑本地构建</span></span></div>
+          <div class="ctrl">
+            <button>▶</button><span class="t">00:31.2 / 06:26.0</span>
+            <div class="seek"><span class="buf" style="inset:0 55% 0 0"></span><span class="dot" style="left:45%"></span></div>
+            <div class="vol"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>自动特效 <span class="hint">Codex 分析字幕文本 · 规则引擎选择 · 全程可审查</span></h3>
+          <div class="dim"><span class="k">关键词密度</span><span class="bar"><i style="width:82%"></i></span><span class="v hi">0.82 · Top: videocut ×8</span></div>
+          <div class="dim"><span class="k">内容类型</span><span class="bar"><i style="width:90%"></i></span><span class="v"><span class="chip">tutorial · 教程</span></span></div>
+          <div class="dim"><span class="k">平均句长</span><span class="bar"><i style="width:66%"></i></span><span class="v">16 字/条 · 参考 ≤15</span></div>
+          <div class="dim"><span class="k">节奏快慢</span><span class="bar"><i style="width:48%"></i></span><span class="v">2.1s/条 · 中速</span></div>
+          <div class="dim"><span class="k">情感强度</span><span class="bar"><i style="width:15%"></i></span><span class="v">0.15 · 平缓</span></div>
+          <div class="skills-label">已选特效（Level 1 主技能 + Level 2 补充 · 上限 max_auto_skills=2）</div>
+          <div class="skills">
+            <span class="skill" title="Level 1：内容类型 = tutorial（互斥强信号，命中第一个即停）"><span class="ic">✓</span>marker-sweep 扫描高亮</span>
+            <span class="skill" title="Level 2：关键词密度 0.82（≥ 阈值），高频专名变色放大"><span class="ic">✓</span>keyword-highlight 关键词高亮</span>
+          </div>
+          <div class="skills-label">已跳过（理由可查）</div>
+          <div class="skills">
+            <span class="skill off" title="信息密度 16 字/条命中，但 Level 2 按序取前 N-1，超出上限被截断"><span class="ic">✕</span>slide-in</span>
+            <span class="skill off" title="内容类型不匹配；且 libass 无文字模糊（\blur 仅作用于描边/阴影）"><span class="ic">✕</span>blur-reveal</span>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:12px;">
+            <button class="btn pri">应用到导出 · 重出 edited_fx.ass</button>
+            <button class="btn">全部禁用</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>motion-plan.json <span class="hint">选择理由审计 · 可回滚</span></h3>
+          <div class="json">{
+  <span class="jk">"meta"</span>: {
+    <span class="jk">"style_id"</span>: <span class="js">"talking-head"</span>,
+    <span class="jk">"orientation"</span>: <span class="js">"landscape"</span>,
+    <span class="jk">"auto_skills"</span>: {
+      <span class="jk">"selected"</span>: [<span class="js">"marker-sweep"</span>, <span class="js">"keyword-highlight"</span>],
+      <span class="jk">"reasoning"</span>: <span class="js">"Level 1 内容类型=tutorial → marker-sweep（主技能）；Level 2 关键词密度 0.82 → keyword-highlight（补充）"</span>,
+      <span class="jk">"rejected"</span>: [
+        { <span class="jk">"skill"</span>: <span class="js">"slide-in"</span>, <span class="jk">"reason"</span>: <span class="js">"信息密度 16 字/条命中，但 Level 2 按序取前 N-1，超出 max_auto_skills=2 上限"</span> },
+        { <span class="jk">"skill"</span>: <span class="js">"blur-reveal"</span>, <span class="jk">"reason"</span>: <span class="js">"内容类型不匹配，且 ASS 不支持文字模糊"</span> }
+      ],
+      <span class="jk">"analysis"</span>: {
+        <span class="jk">"keyword_density"</span>: <span class="jn">0.82</span>,
+        <span class="jk">"content_type"</span>: <span class="js">"tutorial"</span>,
+        <span class="jk">"avg_cue_duration"</span>: <span class="jn">2.1</span>,
+        <span class="jk">"avg_chars_per_cue"</span>: <span class="jn">16</span>,
+        <span class="jk">"emphatic_ratio"</span>: <span class="jn">0.15</span>,
+        <span class="jk">"top_keywords"</span>: [<span class="js">"videocut"</span>, <span class="js">"FFmpeg"</span>, <span class="js">"faster-whisper"</span>]
+      }
+    }
+  }
+}</div>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="card">
+          <h3>特效配置 <span class="hint">config.yaml</span></h3>
+          <div class="kv"><span class="k">subtitles.animate</span><span class="v hl">auto</span></div>
+          <div class="kv"><span class="k">max_auto_skills</span><span class="v">2</span></div>
+          <div class="kv"><span class="k">disabled_skills</span><span class="v">[]</span></div>
+          <div class="kv"><span class="k">keyword_color</span><span class="v">#FFD700</span></div>
+        </div>
+        <div class="card">
+          <h3>特效预设库 <span class="hint">ASS override tags</span></h3>
+          <div style="font-size:11.5px; color:var(--text2); line-height:1.95;">
+            ✅ keyword-highlight · karaoke-fill · kinetic-typography<br />
+            ✅ fade-subtle · slide-in · bounce-in · pulse-emphasis<br />
+            ✅ marker-sweep（\kf 逐词填充模拟扫描，零矢量计算）<br />
+            ✕ blur-reveal（libass 无文字模糊 → 留剪映）
+          </div>
+        </div>
+        <div class="card">
+          <h3>输出清单</h3>
+          <div class="out-list">
+            <div class="out-item"><span class="ck">✓</span><span class="nm">edited_fx.ass</span><span class="sz">4.1 KB</span></div>
+            <div class="out-item"><span class="ck">✓</span><span class="nm">motion-plan.json</span><span class="sz">0.8 KB</span></div>
+            <div class="out-item"><span class="ck">✓</span><span class="nm">edited.srt</span><span class="sz">6.2 KB</span></div>
+            <div class="out-item"><span class="ck">✓</span><span class="nm">edited.ass</span><span class="sz">7.4 KB</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span class="dot"></span><span>特效已应用 · edited_fx.ass（烧录命令不变）</span>
+      <div class="right"><span>规则引擎 · 零 LLM 依赖</span><span>v1.9</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 屏 5：浅色主题对比 ========== -->
+<div class="screen" id="s5">
+  <div class="window" style="max-width:980px;">
+    <div class="titlebar">
+      <div class="logo"><span class="ic">✂</span>VideoCut <small>v1.9</small></div>
+      <div class="seg">
+        <button>单文件</button>
+        <button>批量</button>
+        <button>合并</button>
+        <button class="on">AI 粗剪 <span class="badge-new">字幕</span></button>
+        <button>Codex</button>
+      </div>
+      <div class="winctl"><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="work" style="grid-template-columns: 1fr 300px;">
+      <div class="main">
+        <div class="steps">
+          <span class="st done"><span class="n">✓</span>转录 + 候选扫描</span><span class="ar">→</span>
+          <span class="st done"><span class="n">✓</span>账本复核 + 剪切</span><span class="ar">→</span>
+          <span class="st cur"><span class="n">3</span>字幕（重对齐 + 呈现）</span>
+        </div>
+        <div class="preview">
+          <div class="scene"></div>
+          <div class="person">成片画面</div>
+          <div class="burn-tag" style="color:#b8791f; border-color:rgba(232,163,61,.5);">BURN-IN 预览</div>
+          <div class="burn-sub"><span>先来看这三个关键参数——<br />采样率、位深和声道数</span></div>
+          <div class="ctrl">
+            <button>▶</button><span class="t">00:23.9 / 06:26.0</span>
+            <div class="seek"><span class="buf" style="inset:0 62% 0 0"></span><span class="dot" style="left:38%"></span></div>
+            <div class="vol"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>字幕条预览 <span class="hint">浅色主题 · 账本/字幕表格/卡片全覆盖</span></h3>
+          <table class="cues">
+            <thead><tr><th style="width:34px">#</th><th style="width:150px">成片时间</th><th>文本</th></tr></thead>
+            <tbody>
+              <tr class="cur"><td class="mono">10</td><td class="mono">00:23.900 → 00:25.400</td><td>第一个是采样率，它决定了音质的</td></tr>
+              <tr><td class="mono">11</td><td class="mono">00:25.700 → 00:28.900</td><td>第二个参数是位深，16bit 和 24bit 的<span class="join-ic">⚡跨段词级断开</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="side">
+        <div class="card">
+          <h3>呈现模式</h3>
+          <div class="strategy sel">
+            <div class="t"><span>外显（Sidecar）</span><span class="def">默认</span></div>
+            <div class="d">独立 <b>SRT / ASS</b>，导入剪映 / PR 精修</div>
+          </div>
+          <div class="strategy">
+            <div class="t"><span>内嵌（Burn-in）</span><span class="radio"></span></div>
+            <div class="d">烧录进画面，直接分发</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>样式预设</h3>
+          <div class="presets">
+            <div class="preset sel"><div class="pv"><i></i></div><div class="nm">default</div></div>
+            <div class="preset"><div class="pv thick"><i></i></div><div class="nm">talking-head</div></div>
+            <div class="preset"><div class="pv thin"><i></i></div><div class="nm">minimal</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span class="dot"></span><span>浅色主题 · 字幕工作台</span>
+      <div class="right"><span>模式：外显</span><span>v1.9</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <b>设计说明</b>（对应《字幕功能更新文档》与开发文档 §19.14）：
+  ① 字幕是 AI 粗剪的<b>第三步</b>（合并成片之后），核心是<b>剪后时间轴重对齐</b>——源轴字幕按保留段平移、删除段内容剔除、跨段边界用词级时间戳断开（列表中以「⚡跨段词级断开」标注）；
+  ② <b>默认外显</b>：SRT/ASS 独立文件直通剪映/PR 精修，WebView2 预览不渲染外挂字幕属预期（看列表文本）；内嵌/双出需重编码，烧录为独立异步任务（复用批量任务契约与 trim:progress 事件）；
+  ③ 烧录界面标注编码器 / crf / 预计剩余时间；GPU 编码（NVENC/QSV/AMF）为可选项，启动失败自动回退 libx264；
+  ④ Codex 面板可见 <b>videocut_export_subtitles / videocut_burn_subtitles</b> 两个新工具（MCP 12 → 14）调用轨迹；字幕配置集中于 config.yaml 的 subtitles 段；
+  ⑤ 浅色主题覆盖字幕条列表 / 模式卡片 / 烧录进度条 / 特效 chips（屏 5 验证主题变量完整性）；
+  ⑥ 二次加工（屏 4）：Codex 读字幕文本 → 五维分析（关键词密度 / 内容类型 / 平均句长 / 节奏 / 情感强度，全部读自 motion-plan.json 的 analysis 字段，前端纯展示不重复计算）→ **两级规则引擎**自动选特效（Level 1 内容类型互斥、命中即停取主技能；Level 2 特征规则按序补充，上限 2、可单项禁用、理由可查）→ edited_fx.ass；特效由 ASS override tags 承载（marker-sweep 用 \kf 逐词填充模拟扫描，放弃 \p1 矢量路径），**烧录命令不变**；libass 不支持的效果（blur-reveal）明确降级并记入 rejected。
+</div>
+
+<script>
+  // 屏幕切换
+  document.querySelectorAll('.screen-sw button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.screen-sw button').forEach(function (x) { x.classList.remove('on') });
+      document.querySelectorAll('.screen').forEach(function (x) { x.classList.remove('on') });
+      b.classList.add('on');
+      document.getElementById(b.dataset.screen).classList.add('on');
+    });
+  });
+  // 主题切换（屏 4 固定浅色演示）
+  function toggleTheme() {
+    var cur = document.body.getAttribute('data-theme');
+    document.body.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+  }
+  // 开关演示
+  document.querySelectorAll('.sw2').forEach(function (s) {
+    s.addEventListener('click', function (e) {
+      e.stopPropagation();
+      s.classList.toggle('on');
+    });
+  });
+  // 模式卡片与样式预设单选演示
+  document.querySelectorAll('.strategy').forEach(function (c) {
+    c.addEventListener('click', function () {
+      c.parentElement.querySelectorAll('.strategy').forEach(function (x) { x.classList.remove('sel') });
+      c.classList.add('sel');
+    });
+  });
+  document.querySelectorAll('.presets').forEach(function (g) {
+    g.querySelectorAll('.preset').forEach(function (p) {
+      p.addEventListener('click', function () {
+        g.querySelectorAll('.preset').forEach(function (x) { x.classList.remove('sel') });
+        p.classList.add('sel');
+      });
+    });
+  });
+</script>
+</body>
+</html>
